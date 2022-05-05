@@ -1,6 +1,6 @@
 @file:Suppress("ClassName")
 
-package com.muxiu1997.gtlma.tileentities
+package com.muxiu1997.mxrandom.tileentities
 
 import appeng.api.AEApi
 import appeng.api.networking.GridFlags
@@ -23,8 +23,7 @@ import appeng.util.Platform
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition
 import com.gtnewhorizon.structurelib.structure.StructureDefinition
 import com.gtnewhorizon.structurelib.structure.StructureUtility.*
-import com.muxiu1997.gtlma.GtLargeMolecularAssembler
-import com.muxiu1997.gtlma.GtLargeMolecularAssembler.MODNAME
+import com.muxiu1997.mxrandom.MXRandom.MODNAME
 import gregtech.api.GregTech_API
 import gregtech.api.enums.ItemList
 import gregtech.api.enums.Textures.BlockIcons
@@ -369,7 +368,6 @@ class GT_TileEntity_LargeMolecularAssembler :
     // endregion
 
     companion object {
-        const val MTE_ID = GtLargeMolecularAssembler.MTE_ID_OFFSET + 1
         private const val MACHINE_TYPE = "Molecular Assembler"
         private const val EU_PER_TICK_BASIC = 16
         private const val EU_PER_TICK_CRAFTING = 64
