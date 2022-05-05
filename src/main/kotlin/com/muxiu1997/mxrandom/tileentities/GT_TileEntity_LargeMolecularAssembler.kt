@@ -74,26 +74,27 @@ class GT_TileEntity_LargeMolecularAssembler :
     }
 
     override fun getTexture(
-        aBaseMetaTileEntity: IGregTechTileEntity?,
-        aSide: Byte,
-        aFacing: Byte,
-        aColorIndex: Byte,
-        aActive: Boolean,
-        aRedstone: Boolean
+        baseMetaTileEntity: IGregTechTileEntity?,
+        side: Byte,
+        facing: Byte,
+        colorIndex: Byte,
+        active: Boolean,
+        redstone: Boolean
     ): Array<ITexture> {
-        return if (aSide == aFacing) {
-            arrayOf(
+        return when (side) {
+            facing -> arrayOf(
                 BlockIcons.getCasingTextureForId(CASING_INDEX),
                 TextureFactory.builder().addIcon(BlockIcons.OVERLAY_ME_HATCH).extFacing().build(),
             )
-        } else arrayOf(
-            BlockIcons.getCasingTextureForId(CASING_INDEX),
-        )
+            else -> arrayOf(
+                BlockIcons.getCasingTextureForId(CASING_INDEX),
+            )
+        }
     }
 
     override fun isCorrectMachinePart(aStack: ItemStack?): Boolean = true
 
-    override fun checkRecipe(aStack: ItemStack?): Boolean {
+    override fun checkRecipe(stack: ItemStack?): Boolean {
         withAeJobs { _, aeJobs ->
             mMaxProgresstime = 20
             var craftingProgressTime = 20
@@ -137,9 +138,9 @@ class GT_TileEntity_LargeMolecularAssembler :
         cachedOutputs.saveNBTData(nbt, CACHED_OUTPUTS_NBT_KEY)
     }
 
-    override fun loadNBTData(aNBT: NBTTagCompound) {
-        super.loadNBTData(aNBT)
-        cachedOutputs.loadNBTData(aNBT, CACHED_OUTPUTS_NBT_KEY)
+    override fun loadNBTData(nbt: NBTTagCompound) {
+        super.loadNBTData(nbt)
+        cachedOutputs.loadNBTData(nbt, CACHED_OUTPUTS_NBT_KEY)
     }
 
     override fun getMaxEfficiency(aStack: ItemStack?): Int = 10000
@@ -151,6 +152,7 @@ class GT_TileEntity_LargeMolecularAssembler :
     override fun createTooltip(): GT_Multiblock_Tooltip_Builder {
         return GT_Multiblock_Tooltip_Builder().also {
             it.addMachineType(MACHINE_TYPE)
+                // @formatter:off
                 .addInfo("Need a Data Orb to put in the Controller to work")
                 .addInfo("Basic: ${EU_PER_TICK_BASIC.withColor(EnumChatFormatting.GREEN)} Eu/t, Unaffected by overclocking")
                 .addInfo("Crafting: ${EU_PER_TICK_CRAFTING.withColor(EnumChatFormatting.GREEN)} Eu/t, Finish ${2.withColor(EnumChatFormatting.WHITE)} Jobs in ${1.withColor(EnumChatFormatting.WHITE)}s")
@@ -158,6 +160,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                 .addInfo("-Reduce the Finish time to ${0.5.withColor(EnumChatFormatting.WHITE)}s and ${0.25.withColor(EnumChatFormatting.WHITE)}s")
                 .addInfo("Subsequent Overclocks:")
                 .addInfo("-Double the number of Jobs finished at once to a Max of ${256.withColor(EnumChatFormatting.WHITE)}")
+                // @formatter:on
                 .addSeparator()
                 .beginStructureBlock(5, 5, 5, true)
                 .addController("Front center")
@@ -169,7 +172,7 @@ class GT_TileEntity_LargeMolecularAssembler :
         }
     }
 
-    override fun checkMachine(aBaseMetaTileEntity: IGregTechTileEntity?, aStack: ItemStack?): Boolean {
+    override fun checkMachine(baseMetaTileEntity: IGregTechTileEntity?, stack: ItemStack?): Boolean {
         casing = 0
         return when {
             !checkPiece(STRUCTURE_PIECE_MAIN, 2, 4, 0) -> false
