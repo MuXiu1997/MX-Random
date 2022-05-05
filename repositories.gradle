@@ -21,6 +21,14 @@ repositories {
         }
     }
     maven {
+        name = "ic2"
+        url = "http://maven2.ic2.player.to/"
+        metadataSources {
+            mavenPom()
+            artifact()
+        }
+    }
+    maven {
         name 'jitpack'
         url 'https://jitpack.io'
     }
