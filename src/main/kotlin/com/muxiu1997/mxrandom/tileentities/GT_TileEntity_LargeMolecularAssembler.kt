@@ -40,6 +40,7 @@ import net.minecraft.inventory.InventoryCrafting
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NBTTagCompound
 import net.minecraft.nbt.NBTTagList
+import net.minecraft.util.EnumChatFormatting
 import net.minecraftforge.common.util.ForgeDirection
 import java.util.*
 import kotlin.math.max
@@ -48,6 +49,7 @@ class GT_TileEntity_LargeMolecularAssembler :
     GT_MetaTileEntity_EnhancedMultiBlockBase<GT_TileEntity_LargeMolecularAssembler>, ICraftingProvider,
     IActionHost, IGridProxyable {
 
+    private var casing: Byte = 0
     private var cachedDataOrb: ItemStack? = null
     private var cachedAeJobs: LinkedList<ItemStack>? = LinkedList()
     private var aeJobsDirty = false
@@ -149,29 +151,40 @@ class GT_TileEntity_LargeMolecularAssembler :
     override fun createTooltip(): GT_Multiblock_Tooltip_Builder {
         return GT_Multiblock_Tooltip_Builder().also {
             it.addMachineType(MACHINE_TYPE)
-                .addInfo("Basic: $EU_PER_TICK_BASIC Eu/t, Unaffected by overclocking")
-                .addInfo("Crafting: $EU_PER_TICK_CRAFTING Eu/t")
+                .addInfo("Need a Data Orb to put in the Controller to work")
+                .addInfo("Basic: ${EU_PER_TICK_BASIC.withColor(EnumChatFormatting.GREEN)} Eu/t, Unaffected by overclocking")
+                .addInfo("Crafting: ${EU_PER_TICK_CRAFTING.withColor(EnumChatFormatting.GREEN)} Eu/t, Finish ${2.withColor(EnumChatFormatting.WHITE)} Jobs in ${1.withColor(EnumChatFormatting.WHITE)}s")
+                .addInfo("The first two Overclocks:")
+                .addInfo("-Reduce the Finish time to ${0.5.withColor(EnumChatFormatting.WHITE)}s and ${0.25.withColor(EnumChatFormatting.WHITE)}s")
+                .addInfo("Subsequent Overclocks:")
+                .addInfo("-Double the number of Jobs finished at once to a Max of ${256.withColor(EnumChatFormatting.WHITE)}")
                 .addSeparator()
                 .beginStructureBlock(5, 5, 5, true)
                 .addController("Front center")
+                .addCasingInfo("Robust Tungstensteel Machine Casing", MIN_CASING_COUNT)
                 .addInputBus("Any casing", 1)
                 .addEnergyHatch("Any casing", 1)
                 .addMaintenanceHatch("Any casing", 1)
-                .toolTipFinisher(MODNAME)
+                .toolTipFinisher(MODNAME.withColor(EnumChatFormatting.DARK_PURPLE))
         }
     }
 
     override fun checkMachine(aBaseMetaTileEntity: IGregTechTileEntity?, aStack: ItemStack?): Boolean {
-        if (
-            !checkPiece(STRUCTURE_PIECE_MAIN, 2, 4, 0) ||
-            !checkHatches()
-        ) return false
-        return true
+        casing = 0
+        return when {
+            !checkPiece(STRUCTURE_PIECE_MAIN, 2, 4, 0) -> false
+            !checkHatches() -> false
+            casing < MIN_CASING_COUNT -> false
+            else -> true
+        }
     }
 
     private fun checkHatches(): Boolean {
-        if (mMaintenanceHatches.size != 1 || mEnergyHatches.isEmpty()) return false
-        return true
+        return when {
+            mMaintenanceHatches.size != 1 -> false
+            mEnergyHatches.isEmpty() -> false
+            else -> true
+        }
     }
 
     override fun construct(itemStack: ItemStack?, hintsOnly: Boolean) {
@@ -303,12 +316,12 @@ class GT_TileEntity_LargeMolecularAssembler :
     }
 
     private fun addToLargeMolecularAssemblerList(tileEntity: IGregTechTileEntity?, baseCasingIndex: Short): Boolean {
-        return sequenceOf(
-            this::addMaintenanceToMachineList,
-            this::addInputToMachineList,
-            this::addEnergyInputToMachineList,
-        ).any {
-            it(tileEntity, baseCasingIndex.toInt())
+        val casingIndex = baseCasingIndex.toInt()
+        return when {
+            addMaintenanceToMachineList(tileEntity, casingIndex) -> true
+            addInputToMachineList(tileEntity, casingIndex) -> true
+            addEnergyInputToMachineList(tileEntity, casingIndex) -> true
+            else -> false
         }
     }
 
@@ -372,9 +385,11 @@ class GT_TileEntity_LargeMolecularAssembler :
         private const val EU_PER_TICK_BASIC = 16
         private const val EU_PER_TICK_CRAFTING = 64
         private const val CASING_INDEX = 48
+        private const val MIN_CASING_COUNT = 24
         private const val DATA_ORB_TITLE = "AE-JOBS"
         private const val CACHED_OUTPUTS_NBT_KEY = "cachedOutputs"
         private const val STRUCTURE_PIECE_MAIN = "main"
+
         // region STRUCTURE_DEFINITION
         private val STRUCTURE_DEFINITION =
             StructureDefinition.builder<GT_TileEntity_LargeMolecularAssembler>()
@@ -397,7 +412,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                             1
                         ),
                         onElementPass(
-                            { }, ofBlock(GregTech_API.sBlockCasings4, 0)
+                            { it.casing++ }, ofBlock(GregTech_API.sBlockCasings4, 0)
                         ),
                     )
                 )
@@ -428,6 +443,10 @@ class GT_TileEntity_LargeMolecularAssembler :
                     )
                 }
             }
+        }
+
+        private fun <T> T.withColor(color: EnumChatFormatting): String {
+            return "$color$this${EnumChatFormatting.GRAY}"
         }
     }
 }
