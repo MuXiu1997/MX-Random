@@ -427,24 +427,30 @@ class GT_TileEntity_LargeMolecularAssembler :
         //endregion
 
         private fun IItemList<IAEItemStack>.saveNBTData(nbt: NBTTagCompound, key: String) {
-            val itemList = NBTTagList()
-            this.forEach {
-                if (it.stackSize <= 0) return@forEach
-                val itemTag = NBTTagCompound()
-                it.writeToNBT(itemTag)
-                itemList.appendTag(itemTag)
+            val isList = NBTTagList()
+            this.forEach { aeIS ->
+                if (aeIS.stackSize <= 0) return@forEach
+                val tag = NBTTagCompound()
+                val isTag = NBTTagCompound()
+                aeIS.writeToNBT(isTag)
+                tag.setTag("itemStack", isTag)
+                tag.setLong("size", aeIS.stackSize)
+                isList.appendTag(tag)
             }
-            nbt.setTag(key, itemList)
+            nbt.setTag(key, isList)
         }
 
         private fun IItemList<IAEItemStack>.loadNBTData(nbt: NBTTagCompound, key: String) {
-            val itemList = nbt.getTag(key)
-            if (itemList is NBTTagList) {
-                repeat(itemList.tagCount()) { idx ->
-                    this.add(
-                        AEApi.instance().storage().createItemStack(GT_Utility.loadItem(itemList.getCompoundTagAt(idx)))
-                    )
-                }
+            val isList = nbt.getTag(key)
+            if (isList !is NBTTagList) return
+            repeat(isList.tagCount()) {
+                val tag = isList.getCompoundTagAt(it)
+                val isTag = tag.getCompoundTag("itemStack")
+                val size = tag.getLong("size")
+                val itemStack = GT_Utility.loadItem(isTag)
+                val aeIS = AEApi.instance().storage().createItemStack(itemStack)
+                aeIS.stackSize = size
+                this.add(aeIS)
             }
         }
 
