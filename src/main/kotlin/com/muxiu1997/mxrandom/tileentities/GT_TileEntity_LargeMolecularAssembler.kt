@@ -21,9 +21,12 @@ import appeng.me.helpers.AENetworkProxy
 import appeng.me.helpers.IGridProxyable
 import appeng.util.Platform
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition
+import com.gtnewhorizon.structurelib.structure.IStructureElementCheckOnly
 import com.gtnewhorizon.structurelib.structure.StructureDefinition
 import com.gtnewhorizon.structurelib.structure.StructureUtility.*
 import com.muxiu1997.mxrandom.MXRandom.MODNAME
+import com.muxiu1997.mxrandom.blocks.BlockCraftingDisplay
+import com.muxiu1997.mxrandom.blocks.TileEntityCraftingDisplay
 import gregtech.api.GregTech_API
 import gregtech.api.enums.ItemList
 import gregtech.api.enums.Textures.BlockIcons
@@ -41,6 +44,7 @@ import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NBTTagCompound
 import net.minecraft.nbt.NBTTagList
 import net.minecraft.util.EnumChatFormatting
+import net.minecraft.world.World
 import net.minecraftforge.common.util.ForgeDirection
 import java.util.*
 import kotlin.math.max
@@ -50,6 +54,8 @@ class GT_TileEntity_LargeMolecularAssembler :
     IActionHost, IGridProxyable {
 
     private var casing: Byte = 0
+    private var craftingDisplayPoint: CraftingDisplayPoint? = null
+
     private var cachedDataOrb: ItemStack? = null
     private var cachedAeJobs: LinkedList<ItemStack>? = LinkedList()
     private var aeJobsDirty = false
@@ -127,6 +133,7 @@ class GT_TileEntity_LargeMolecularAssembler :
             }
             mEfficiency = 10000 - (idealStatus - repairStatus) * 1000
             mEfficiencyIncrease = 10000
+            setCraftingDisplay()
             return true
         }
         return false
@@ -208,9 +215,28 @@ class GT_TileEntity_LargeMolecularAssembler :
             flushCachedOutputsIfNeeded(tick)
             saveAeJobsIfNeeded()
             syncAEProxyActive(baseMetaTileEntity)
-            issuePatternChangeIfNeeded()
+            issuePatternChangeIfNeeded(tick)
         }
     }
+
+    override fun stopMachine() {
+        super.stopMachine()
+        craftingDisplayPoint?.let { p ->
+            if (p.w.getBlock(p.x, p.y, p.z) is BlockCraftingDisplay) {
+                p.w.setBlockToAir(p.x, p.y, p.z)
+            }
+        }
+    }
+
+    override fun onRemoval() {
+        super.onRemoval()
+        craftingDisplayPoint?.let { p ->
+            if (p.w.getBlock(p.x, p.y, p.z) is BlockCraftingDisplay) {
+                p.w.setBlockToAir(p.x, p.y, p.z)
+            }
+        }
+    }
+
     // endregion
 
     private inline fun withAeJobs(action: (dataOrb: ItemStack, aeJobs: LinkedList<ItemStack>) -> Unit) {
@@ -238,6 +264,17 @@ class GT_TileEntity_LargeMolecularAssembler :
         cachedDataOrb = dataOrb
         cachedAeJobs = Behaviour_DataOrb.getNBTInventory(dataOrb).filterNotNull().toCollection(LinkedList())
         action(cachedDataOrb!!, cachedAeJobs!!)
+    }
+
+    private fun setCraftingDisplay() {
+        craftingDisplayPoint?.let { p ->
+            if (p.w.getBlock(p.x, p.y, p.z) !is BlockCraftingDisplay) {
+                p.w.setBlock(p.x, p.y, p.z, BlockCraftingDisplay)
+            }
+            val te = p.w.getTileEntity(p.x, p.y, p.z)
+            if (te !is TileEntityCraftingDisplay) return
+            te.itemStack = mOutputItems?.get(0)
+        }
     }
 
     private fun getRequest(): BaseActionSource? {
@@ -278,7 +315,8 @@ class GT_TileEntity_LargeMolecularAssembler :
         }
     }
 
-    private fun issuePatternChangeIfNeeded() {
+    private fun issuePatternChangeIfNeeded(tick: Long) {
+        if (tick % 20 != 0L) return
         compactedInputs.let { inputs ->
             val patterns = inputs.filter {
                 it.item is ItemEncodedPattern &&
@@ -305,7 +343,6 @@ class GT_TileEntity_LargeMolecularAssembler :
                 this, "proxy", this.getStackForm(1), true
             ).apply {
                 setFlags(GridFlags.REQUIRE_CHANNEL)
-                onReady()
             }
         }
 
@@ -401,7 +438,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                         arrayOf(
                             arrayOf("CCCCC", "CGGGC", "CGGGC", "CGGGC", "CCCCC"),
                             arrayOf("CGGGC", "G---G", "G---G", "G---G", "CGGGC"),
-                            arrayOf("CGGGC", "G---G", "G---G", "G---G", "CGGGC"),
+                            arrayOf("CGGGC", "G---G", "G-X-G", "G---G", "CGGGC"),
                             arrayOf("CGGGC", "G---G", "G---G", "G---G", "CGGGC"),
                             arrayOf("CC~CC", "CGGGC", "CGGGC", "CGGGC", "CCCCC"),
                         )
@@ -423,8 +460,22 @@ class GT_TileEntity_LargeMolecularAssembler :
                     'G',
                     ofBlockAnyMeta(AEApi.instance().definitions().blocks().quartzVibrantGlass().maybeBlock().get())
                 )
+                .addElement(
+                    'X',
+                    IStructureElementCheckOnly { it, w, x, y, z ->
+                        when {
+                            w.isAirBlock(x, y, z) || w.getBlock(x, y, z) == BlockCraftingDisplay -> {
+                                it.craftingDisplayPoint = CraftingDisplayPoint(w, x, y, z)
+                                true
+                            }
+                            else -> false
+                        }
+                    }
+                )
                 .build()
         //endregion
+
+        private data class CraftingDisplayPoint(val w: World, val x: Int, val y: Int, val z: Int)
 
         private fun IItemList<IAEItemStack>.saveNBTData(nbt: NBTTagCompound, key: String) {
             val isList = NBTTagList()
