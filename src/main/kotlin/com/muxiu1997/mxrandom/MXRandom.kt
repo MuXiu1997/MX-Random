@@ -37,7 +37,9 @@ object MXRandom {
 
     @Mod.EventHandler
     fun init(@Suppress("UNUSED_PARAMETER") e: FMLInitializationEvent) {
+        proxy.registerBlocks()
         proxy.registerTileEntity()
+        proxy.registerRenderers()
     }
 }
 

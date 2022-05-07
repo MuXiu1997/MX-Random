@@ -21,9 +21,12 @@ import appeng.me.helpers.AENetworkProxy
 import appeng.me.helpers.IGridProxyable
 import appeng.util.Platform
 import com.gtnewhorizon.structurelib.structure.IStructureDefinition
+import com.gtnewhorizon.structurelib.structure.IStructureElementCheckOnly
 import com.gtnewhorizon.structurelib.structure.StructureDefinition
 import com.gtnewhorizon.structurelib.structure.StructureUtility.*
 import com.muxiu1997.mxrandom.MXRandom.MODNAME
+import com.muxiu1997.mxrandom.blocks.BlockCraftingDisplay
+import com.muxiu1997.mxrandom.blocks.TileEntityCraftingDisplay
 import gregtech.api.GregTech_API
 import gregtech.api.enums.ItemList
 import gregtech.api.enums.Textures.BlockIcons
@@ -41,6 +44,7 @@ import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NBTTagCompound
 import net.minecraft.nbt.NBTTagList
 import net.minecraft.util.EnumChatFormatting
+import net.minecraft.world.World
 import net.minecraftforge.common.util.ForgeDirection
 import java.util.*
 import kotlin.math.max
@@ -50,6 +54,8 @@ class GT_TileEntity_LargeMolecularAssembler :
     IActionHost, IGridProxyable {
 
     private var casing: Byte = 0
+    private var craftingDisplayPoint: CraftingDisplayPoint? = null
+
     private var cachedDataOrb: ItemStack? = null
     private var cachedAeJobs: LinkedList<ItemStack>? = LinkedList()
     private var aeJobsDirty = false
@@ -74,26 +80,27 @@ class GT_TileEntity_LargeMolecularAssembler :
     }
 
     override fun getTexture(
-        aBaseMetaTileEntity: IGregTechTileEntity?,
-        aSide: Byte,
-        aFacing: Byte,
-        aColorIndex: Byte,
-        aActive: Boolean,
-        aRedstone: Boolean
+        baseMetaTileEntity: IGregTechTileEntity?,
+        side: Byte,
+        facing: Byte,
+        colorIndex: Byte,
+        active: Boolean,
+        redstone: Boolean
     ): Array<ITexture> {
-        return if (aSide == aFacing) {
-            arrayOf(
+        return when (side) {
+            facing -> arrayOf(
                 BlockIcons.getCasingTextureForId(CASING_INDEX),
                 TextureFactory.builder().addIcon(BlockIcons.OVERLAY_ME_HATCH).extFacing().build(),
             )
-        } else arrayOf(
-            BlockIcons.getCasingTextureForId(CASING_INDEX),
-        )
+            else -> arrayOf(
+                BlockIcons.getCasingTextureForId(CASING_INDEX),
+            )
+        }
     }
 
     override fun isCorrectMachinePart(aStack: ItemStack?): Boolean = true
 
-    override fun checkRecipe(aStack: ItemStack?): Boolean {
+    override fun checkRecipe(stack: ItemStack?): Boolean {
         withAeJobs { _, aeJobs ->
             mMaxProgresstime = 20
             var craftingProgressTime = 20
@@ -126,6 +133,7 @@ class GT_TileEntity_LargeMolecularAssembler :
             }
             mEfficiency = 10000 - (idealStatus - repairStatus) * 1000
             mEfficiencyIncrease = 10000
+            setCraftingDisplay()
             return true
         }
         return false
@@ -137,9 +145,9 @@ class GT_TileEntity_LargeMolecularAssembler :
         cachedOutputs.saveNBTData(nbt, CACHED_OUTPUTS_NBT_KEY)
     }
 
-    override fun loadNBTData(aNBT: NBTTagCompound) {
-        super.loadNBTData(aNBT)
-        cachedOutputs.loadNBTData(aNBT, CACHED_OUTPUTS_NBT_KEY)
+    override fun loadNBTData(nbt: NBTTagCompound) {
+        super.loadNBTData(nbt)
+        cachedOutputs.loadNBTData(nbt, CACHED_OUTPUTS_NBT_KEY)
     }
 
     override fun getMaxEfficiency(aStack: ItemStack?): Int = 10000
@@ -151,6 +159,7 @@ class GT_TileEntity_LargeMolecularAssembler :
     override fun createTooltip(): GT_Multiblock_Tooltip_Builder {
         return GT_Multiblock_Tooltip_Builder().also {
             it.addMachineType(MACHINE_TYPE)
+                // @formatter:off
                 .addInfo("Need a Data Orb to put in the Controller to work")
                 .addInfo("Basic: ${EU_PER_TICK_BASIC.withColor(EnumChatFormatting.GREEN)} Eu/t, Unaffected by overclocking")
                 .addInfo("Crafting: ${EU_PER_TICK_CRAFTING.withColor(EnumChatFormatting.GREEN)} Eu/t, Finish ${2.withColor(EnumChatFormatting.WHITE)} Jobs in ${1.withColor(EnumChatFormatting.WHITE)}s")
@@ -158,6 +167,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                 .addInfo("-Reduce the Finish time to ${0.5.withColor(EnumChatFormatting.WHITE)}s and ${0.25.withColor(EnumChatFormatting.WHITE)}s")
                 .addInfo("Subsequent Overclocks:")
                 .addInfo("-Double the number of Jobs finished at once to a Max of ${256.withColor(EnumChatFormatting.WHITE)}")
+                // @formatter:on
                 .addSeparator()
                 .beginStructureBlock(5, 5, 5, true)
                 .addController("Front center")
@@ -169,7 +179,7 @@ class GT_TileEntity_LargeMolecularAssembler :
         }
     }
 
-    override fun checkMachine(aBaseMetaTileEntity: IGregTechTileEntity?, aStack: ItemStack?): Boolean {
+    override fun checkMachine(baseMetaTileEntity: IGregTechTileEntity?, stack: ItemStack?): Boolean {
         casing = 0
         return when {
             !checkPiece(STRUCTURE_PIECE_MAIN, 2, 4, 0) -> false
@@ -205,9 +215,28 @@ class GT_TileEntity_LargeMolecularAssembler :
             flushCachedOutputsIfNeeded(tick)
             saveAeJobsIfNeeded()
             syncAEProxyActive(baseMetaTileEntity)
-            issuePatternChangeIfNeeded()
+            issuePatternChangeIfNeeded(tick)
         }
     }
+
+    override fun stopMachine() {
+        super.stopMachine()
+        craftingDisplayPoint?.let { p ->
+            if (p.w.getBlock(p.x, p.y, p.z) is BlockCraftingDisplay) {
+                p.w.setBlockToAir(p.x, p.y, p.z)
+            }
+        }
+    }
+
+    override fun onRemoval() {
+        super.onRemoval()
+        craftingDisplayPoint?.let { p ->
+            if (p.w.getBlock(p.x, p.y, p.z) is BlockCraftingDisplay) {
+                p.w.setBlockToAir(p.x, p.y, p.z)
+            }
+        }
+    }
+
     // endregion
 
     private inline fun withAeJobs(action: (dataOrb: ItemStack, aeJobs: LinkedList<ItemStack>) -> Unit) {
@@ -235,6 +264,17 @@ class GT_TileEntity_LargeMolecularAssembler :
         cachedDataOrb = dataOrb
         cachedAeJobs = Behaviour_DataOrb.getNBTInventory(dataOrb).filterNotNull().toCollection(LinkedList())
         action(cachedDataOrb!!, cachedAeJobs!!)
+    }
+
+    private fun setCraftingDisplay() {
+        craftingDisplayPoint?.let { p ->
+            if (p.w.getBlock(p.x, p.y, p.z) !is BlockCraftingDisplay) {
+                p.w.setBlock(p.x, p.y, p.z, BlockCraftingDisplay)
+            }
+            val te = p.w.getTileEntity(p.x, p.y, p.z)
+            if (te !is TileEntityCraftingDisplay) return
+            te.itemStack = mOutputItems?.get(0)
+        }
     }
 
     private fun getRequest(): BaseActionSource? {
@@ -275,7 +315,8 @@ class GT_TileEntity_LargeMolecularAssembler :
         }
     }
 
-    private fun issuePatternChangeIfNeeded() {
+    private fun issuePatternChangeIfNeeded(tick: Long) {
+        if (tick % 20 != 0L) return
         compactedInputs.let { inputs ->
             val patterns = inputs.filter {
                 it.item is ItemEncodedPattern &&
@@ -302,7 +343,6 @@ class GT_TileEntity_LargeMolecularAssembler :
                 this, "proxy", this.getStackForm(1), true
             ).apply {
                 setFlags(GridFlags.REQUIRE_CHANNEL)
-                onReady()
             }
         }
 
@@ -398,7 +438,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                         arrayOf(
                             arrayOf("CCCCC", "CGGGC", "CGGGC", "CGGGC", "CCCCC"),
                             arrayOf("CGGGC", "G---G", "G---G", "G---G", "CGGGC"),
-                            arrayOf("CGGGC", "G---G", "G---G", "G---G", "CGGGC"),
+                            arrayOf("CGGGC", "G---G", "G-X-G", "G---G", "CGGGC"),
                             arrayOf("CGGGC", "G---G", "G---G", "G---G", "CGGGC"),
                             arrayOf("CC~CC", "CGGGC", "CGGGC", "CGGGC", "CCCCC"),
                         )
@@ -420,28 +460,48 @@ class GT_TileEntity_LargeMolecularAssembler :
                     'G',
                     ofBlockAnyMeta(AEApi.instance().definitions().blocks().quartzVibrantGlass().maybeBlock().get())
                 )
+                .addElement(
+                    'X',
+                    IStructureElementCheckOnly { it, w, x, y, z ->
+                        when {
+                            w.isAirBlock(x, y, z) || w.getBlock(x, y, z) == BlockCraftingDisplay -> {
+                                it.craftingDisplayPoint = CraftingDisplayPoint(w, x, y, z)
+                                true
+                            }
+                            else -> false
+                        }
+                    }
+                )
                 .build()
         //endregion
 
+        private data class CraftingDisplayPoint(val w: World, val x: Int, val y: Int, val z: Int)
+
         private fun IItemList<IAEItemStack>.saveNBTData(nbt: NBTTagCompound, key: String) {
-            val itemList = NBTTagList()
-            this.forEach {
-                if (it.stackSize <= 0) return@forEach
-                val itemTag = NBTTagCompound()
-                it.writeToNBT(itemTag)
-                itemList.appendTag(itemTag)
+            val isList = NBTTagList()
+            this.forEach { aeIS ->
+                if (aeIS.stackSize <= 0) return@forEach
+                val tag = NBTTagCompound()
+                val isTag = NBTTagCompound()
+                aeIS.writeToNBT(isTag)
+                tag.setTag("itemStack", isTag)
+                tag.setLong("size", aeIS.stackSize)
+                isList.appendTag(tag)
             }
-            nbt.setTag(key, itemList)
+            nbt.setTag(key, isList)
         }
 
         private fun IItemList<IAEItemStack>.loadNBTData(nbt: NBTTagCompound, key: String) {
-            val itemList = nbt.getTag(key)
-            if (itemList is NBTTagList) {
-                repeat(itemList.tagCount()) { idx ->
-                    this.add(
-                        AEApi.instance().storage().createItemStack(GT_Utility.loadItem(itemList.getCompoundTagAt(idx)))
-                    )
-                }
+            val isList = nbt.getTag(key)
+            if (isList !is NBTTagList) return
+            repeat(isList.tagCount()) {
+                val tag = isList.getCompoundTagAt(it)
+                val isTag = tag.getCompoundTag("itemStack")
+                val size = tag.getLong("size")
+                val itemStack = GT_Utility.loadItem(isTag)
+                val aeIS = AEApi.instance().storage().createItemStack(itemStack)
+                aeIS.stackSize = size
+                this.add(aeIS)
             }
         }
 
