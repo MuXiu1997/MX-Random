@@ -467,7 +467,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                 if (aeIS.stackSize <= 0) return@forEach
                 val tag = NBTTagCompound()
                 val isTag = NBTTagCompound()
-                aeIS.writeToNBT(isTag)
+                aeIS.itemStack.writeToNBT(isTag)
                 tag.setTag("itemStack", isTag)
                 tag.setLong("size", aeIS.stackSize)
                 isList.appendTag(tag)
