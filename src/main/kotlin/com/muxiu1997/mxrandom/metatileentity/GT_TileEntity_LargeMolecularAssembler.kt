@@ -24,10 +24,10 @@ import com.gtnewhorizon.structurelib.structure.IStructureDefinition
 import com.gtnewhorizon.structurelib.structure.IStructureElementCheckOnly
 import com.gtnewhorizon.structurelib.structure.StructureDefinition
 import com.gtnewhorizon.structurelib.structure.StructureUtility.*
-import com.muxiu1997.mxrandom.MXRandom
 import com.muxiu1997.mxrandom.MXRandom.MODNAME
-import com.muxiu1997.mxrandom.blocks.BlockCraftingDisplay
-import com.muxiu1997.mxrandom.blocks.TileEntityCraftingDisplay
+import com.muxiu1997.mxrandom.network.NetworkHandler
+import com.muxiu1997.mxrandom.network.packets.PacketCraftingFX
+import cpw.mods.fml.common.network.NetworkRegistry
 import gregtech.api.GregTech_API
 import gregtech.api.enums.ItemList
 import gregtech.api.enums.Textures.BlockIcons
@@ -132,10 +132,10 @@ class GT_TileEntity_LargeMolecularAssembler :
                 mEUt = -craftingEUt
                 mMaxProgresstime = craftingProgressTime
                 mOutputItems = outputs.toTypedArray()
+                addCraftingFX(outputs.first)
             }
             mEfficiency = 10000 - (idealStatus - repairStatus) * 1000
             mEfficiencyIncrease = 10000
-            setCraftingDisplay()
             return true
         }
         return false
@@ -249,15 +249,24 @@ class GT_TileEntity_LargeMolecularAssembler :
         action(cachedDataOrb!!, cachedAeJobs!!)
     }
 
-    private fun setCraftingDisplay() {
+    private fun addCraftingFX(itemStack: ItemStack) {
         craftingDisplayPoint?.let { p ->
-            if (p.w.getBlock(p.x, p.y, p.z) !is BlockCraftingDisplay) {
-                p.w.setBlock(p.x, p.y, p.z, BlockCraftingDisplay)
-            }
-            val te = p.w.getTileEntity(p.x, p.y, p.z)
-            if (te !is TileEntityCraftingDisplay) return
-            if (te.parent !== baseMetaTileEntity) te.parent = baseMetaTileEntity
-            te.itemStack = mOutputItems?.get(0)
+            NetworkHandler.sendToAllAround(
+                PacketCraftingFX(
+                    p.x,
+                    p.y,
+                    p.z,
+                    mMaxProgresstime,
+                    AEApi.instance().storage().createItemStack(itemStack)
+                ),
+                NetworkRegistry.TargetPoint(
+                    p.w.provider.dimensionId,
+                    p.x.toDouble(),
+                    p.y.toDouble(),
+                    p.z.toDouble(),
+                    64.0
+                )
+            )
         }
     }
 
@@ -448,7 +457,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                     'X',
                     IStructureElementCheckOnly { it, w, x, y, z ->
                         when {
-                            w.isAirBlock(x, y, z) || w.getBlock(x, y, z) == BlockCraftingDisplay -> {
+                            w.isAirBlock(x, y, z) -> {
                                 it.craftingDisplayPoint = CraftingDisplayPoint(w, x, y, z)
                                 true
                             }
