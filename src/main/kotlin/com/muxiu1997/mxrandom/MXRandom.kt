@@ -13,8 +13,11 @@ import org.apache.logging.log4j.Logger
     modid = MODID,
     name = MODNAME,
     version = "", // Handled by gradle
-    dependencies = "required-after:forgelin;required-after:appliedenergistics2;required-after:gregtech",
-    modLanguageAdapter = "net.shadowfacts.forgelin.KotlinAdapter"
+    modLanguageAdapter = "net.shadowfacts.forgelin.KotlinAdapter",
+    dependencies = "" +
+        "required-after:forgelin;" +
+        "required-after:appliedenergistics2;" +
+        "required-after:gregtech",
 )
 object MXRandom {
     const val MODID = "mxrandom"
@@ -39,6 +42,7 @@ object MXRandom {
     fun init(@Suppress("UNUSED_PARAMETER") e: FMLInitializationEvent) {
         proxy.registerBlocks()
         proxy.registerTileEntity()
+        proxy.registerGTMetaTileEntity()
         proxy.registerRenderers()
     }
 }

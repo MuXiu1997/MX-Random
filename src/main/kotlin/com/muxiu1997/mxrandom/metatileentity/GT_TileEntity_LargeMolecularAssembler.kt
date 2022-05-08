@@ -1,6 +1,6 @@
 @file:Suppress("ClassName")
 
-package com.muxiu1997.mxrandom.tileentities
+package com.muxiu1997.mxrandom.metatileentity
 
 import appeng.api.AEApi
 import appeng.api.networking.GridFlags
@@ -69,6 +69,7 @@ class GT_TileEntity_LargeMolecularAssembler :
     private var lastOutputTick: Long = 0
     private var tickCounter: Long = 0
 
+    @Suppress("unused")
     constructor(aID: Int, aName: String, aNameRegional: String) : super(aID, aName, aNameRegional)
 
     constructor(aName: String) : super(aName)
