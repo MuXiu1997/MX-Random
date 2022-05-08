@@ -2,6 +2,7 @@ package com.muxiu1997.mxrandom.blocks
 
 import cpw.mods.fml.relauncher.Side
 import cpw.mods.fml.relauncher.SideOnly
+import gregtech.api.interfaces.tileentity.IGregTechTileEntity
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NBTTagCompound
 import net.minecraft.network.NetworkManager
@@ -18,9 +19,22 @@ class TileEntityCraftingDisplay : TileEntity() {
             if (!worldObj.isRemote) {
                 worldObj.markBlockForUpdate(xCoord, yCoord, zCoord)
             }
-            this.markDirty()
+            markDirty()
         }
 
+    var parent: IGregTechTileEntity? = null
+
+    override fun updateEntity() {
+        super.updateEntity()
+        if (worldObj.isRemote) return
+        if (parent == null || parent!!.isDead || !parent!!.isActive) {
+            invalidate()
+            if (worldObj.getBlock(xCoord, yCoord, zCoord) == blockType) {
+                worldObj.setBlockToAir(xCoord, yCoord, zCoord)
+            }
+            markDirty()
+        }
+    }
 
     @SideOnly(Side.CLIENT)
     override fun getRenderBoundingBox(): AxisAlignedBB = AxisAlignedBB.getBoundingBox(

@@ -24,6 +24,7 @@ import com.gtnewhorizon.structurelib.structure.IStructureDefinition
 import com.gtnewhorizon.structurelib.structure.IStructureElementCheckOnly
 import com.gtnewhorizon.structurelib.structure.StructureDefinition
 import com.gtnewhorizon.structurelib.structure.StructureUtility.*
+import com.muxiu1997.mxrandom.MXRandom
 import com.muxiu1997.mxrandom.MXRandom.MODNAME
 import com.muxiu1997.mxrandom.blocks.BlockCraftingDisplay
 import com.muxiu1997.mxrandom.blocks.TileEntityCraftingDisplay
@@ -219,25 +220,6 @@ class GT_TileEntity_LargeMolecularAssembler :
             issuePatternChangeIfNeeded(tick)
         }
     }
-
-    override fun stopMachine() {
-        super.stopMachine()
-        craftingDisplayPoint?.let { p ->
-            if (p.w.getBlock(p.x, p.y, p.z) is BlockCraftingDisplay) {
-                p.w.setBlockToAir(p.x, p.y, p.z)
-            }
-        }
-    }
-
-    override fun onRemoval() {
-        super.onRemoval()
-        craftingDisplayPoint?.let { p ->
-            if (p.w.getBlock(p.x, p.y, p.z) is BlockCraftingDisplay) {
-                p.w.setBlockToAir(p.x, p.y, p.z)
-            }
-        }
-    }
-
     // endregion
 
     private inline fun withAeJobs(action: (dataOrb: ItemStack, aeJobs: LinkedList<ItemStack>) -> Unit) {
@@ -274,6 +256,7 @@ class GT_TileEntity_LargeMolecularAssembler :
             }
             val te = p.w.getTileEntity(p.x, p.y, p.z)
             if (te !is TileEntityCraftingDisplay) return
+            if (te.parent !== baseMetaTileEntity) te.parent = baseMetaTileEntity
             te.itemStack = mOutputItems?.get(0)
         }
     }
