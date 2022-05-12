@@ -184,7 +184,12 @@ class GT_TileEntity_LargeMolecularAssembler :
     override fun checkMachine(baseMetaTileEntity: IGregTechTileEntity?, stack: ItemStack?): Boolean {
         casing = 0
         return when {
-            !checkPiece(STRUCTURE_PIECE_MAIN, 2, 4, 0) -> false
+            !checkPiece(
+                STRUCTURE_PIECE_MAIN,
+                STRUCTURE_HORIZONTAL_OFFSET,
+                STRUCTURE_VERTICAL_OFFSET,
+                STRUCTURE_DEPTH_OFFSET
+            ) -> false
             !checkHatches() -> false
             casing < MIN_CASING_COUNT -> false
             else -> true
@@ -200,7 +205,14 @@ class GT_TileEntity_LargeMolecularAssembler :
     }
 
     override fun construct(itemStack: ItemStack?, hintsOnly: Boolean) {
-        buildPiece(STRUCTURE_PIECE_MAIN, itemStack, hintsOnly, 2, 4, 0)
+        buildPiece(
+            STRUCTURE_PIECE_MAIN,
+            itemStack,
+            hintsOnly,
+            STRUCTURE_HORIZONTAL_OFFSET,
+            STRUCTURE_VERTICAL_OFFSET,
+            STRUCTURE_DEPTH_OFFSET
+        )
     }
 
     override fun getStructureDefinition(): IStructureDefinition<GT_TileEntity_LargeMolecularAssembler> =
@@ -421,6 +433,9 @@ class GT_TileEntity_LargeMolecularAssembler :
         private const val MIN_CASING_COUNT = 24
         private const val DATA_ORB_TITLE = "AE-JOBS"
         private const val CACHED_OUTPUTS_NBT_KEY = "cachedOutputs"
+        private const val STRUCTURE_HORIZONTAL_OFFSET = 2
+        private const val STRUCTURE_VERTICAL_OFFSET = 4
+        private const val STRUCTURE_DEPTH_OFFSET = 0
         private const val STRUCTURE_PIECE_MAIN = "main"
 
         // region STRUCTURE_DEFINITION
