@@ -8,7 +8,7 @@ compileKotlin {
 }
 
 buildConfig {
-    packageName("com.muxiu1997.gtlma")
+    packageName("com.muxiu1997.mxrandom")
     buildConfigField('String', 'MODVER', "\"${project.modVersion}\"")
     useKotlinOutput { topLevelConstants = true }
 }

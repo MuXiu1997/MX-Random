@@ -1,6 +1,6 @@
 @file:Suppress("ClassName")
 
-package com.muxiu1997.mxrandom.tileentities
+package com.muxiu1997.mxrandom.metatileentity
 
 import appeng.api.AEApi
 import appeng.api.networking.GridFlags
@@ -25,8 +25,9 @@ import com.gtnewhorizon.structurelib.structure.IStructureElementCheckOnly
 import com.gtnewhorizon.structurelib.structure.StructureDefinition
 import com.gtnewhorizon.structurelib.structure.StructureUtility.*
 import com.muxiu1997.mxrandom.MXRandom.MODNAME
-import com.muxiu1997.mxrandom.blocks.BlockCraftingDisplay
-import com.muxiu1997.mxrandom.blocks.TileEntityCraftingDisplay
+import com.muxiu1997.mxrandom.network.NetworkHandler
+import com.muxiu1997.mxrandom.network.packets.PacketCraftingFX
+import cpw.mods.fml.common.network.NetworkRegistry
 import gregtech.api.GregTech_API
 import gregtech.api.enums.ItemList
 import gregtech.api.enums.Textures.BlockIcons
@@ -69,6 +70,7 @@ class GT_TileEntity_LargeMolecularAssembler :
     private var lastOutputTick: Long = 0
     private var tickCounter: Long = 0
 
+    @Suppress("unused")
     constructor(aID: Int, aName: String, aNameRegional: String) : super(aID, aName, aNameRegional)
 
     constructor(aName: String) : super(aName)
@@ -130,10 +132,10 @@ class GT_TileEntity_LargeMolecularAssembler :
                 mEUt = -craftingEUt
                 mMaxProgresstime = craftingProgressTime
                 mOutputItems = outputs.toTypedArray()
+                addCraftingFX(outputs.first)
             }
             mEfficiency = 10000 - (idealStatus - repairStatus) * 1000
             mEfficiencyIncrease = 10000
-            setCraftingDisplay()
             return true
         }
         return false
@@ -182,7 +184,12 @@ class GT_TileEntity_LargeMolecularAssembler :
     override fun checkMachine(baseMetaTileEntity: IGregTechTileEntity?, stack: ItemStack?): Boolean {
         casing = 0
         return when {
-            !checkPiece(STRUCTURE_PIECE_MAIN, 2, 4, 0) -> false
+            !checkPiece(
+                STRUCTURE_PIECE_MAIN,
+                STRUCTURE_HORIZONTAL_OFFSET,
+                STRUCTURE_VERTICAL_OFFSET,
+                STRUCTURE_DEPTH_OFFSET
+            ) -> false
             !checkHatches() -> false
             casing < MIN_CASING_COUNT -> false
             else -> true
@@ -198,7 +205,14 @@ class GT_TileEntity_LargeMolecularAssembler :
     }
 
     override fun construct(itemStack: ItemStack?, hintsOnly: Boolean) {
-        buildPiece(STRUCTURE_PIECE_MAIN, itemStack, hintsOnly, 2, 4, 0)
+        buildPiece(
+            STRUCTURE_PIECE_MAIN,
+            itemStack,
+            hintsOnly,
+            STRUCTURE_HORIZONTAL_OFFSET,
+            STRUCTURE_VERTICAL_OFFSET,
+            STRUCTURE_DEPTH_OFFSET
+        )
     }
 
     override fun getStructureDefinition(): IStructureDefinition<GT_TileEntity_LargeMolecularAssembler> =
@@ -218,25 +232,6 @@ class GT_TileEntity_LargeMolecularAssembler :
             issuePatternChangeIfNeeded(tick)
         }
     }
-
-    override fun stopMachine() {
-        super.stopMachine()
-        craftingDisplayPoint?.let { p ->
-            if (p.w.getBlock(p.x, p.y, p.z) is BlockCraftingDisplay) {
-                p.w.setBlockToAir(p.x, p.y, p.z)
-            }
-        }
-    }
-
-    override fun onRemoval() {
-        super.onRemoval()
-        craftingDisplayPoint?.let { p ->
-            if (p.w.getBlock(p.x, p.y, p.z) is BlockCraftingDisplay) {
-                p.w.setBlockToAir(p.x, p.y, p.z)
-            }
-        }
-    }
-
     // endregion
 
     private inline fun withAeJobs(action: (dataOrb: ItemStack, aeJobs: LinkedList<ItemStack>) -> Unit) {
@@ -266,14 +261,24 @@ class GT_TileEntity_LargeMolecularAssembler :
         action(cachedDataOrb!!, cachedAeJobs!!)
     }
 
-    private fun setCraftingDisplay() {
+    private fun addCraftingFX(itemStack: ItemStack) {
         craftingDisplayPoint?.let { p ->
-            if (p.w.getBlock(p.x, p.y, p.z) !is BlockCraftingDisplay) {
-                p.w.setBlock(p.x, p.y, p.z, BlockCraftingDisplay)
-            }
-            val te = p.w.getTileEntity(p.x, p.y, p.z)
-            if (te !is TileEntityCraftingDisplay) return
-            te.itemStack = mOutputItems?.get(0)
+            NetworkHandler.sendToAllAround(
+                PacketCraftingFX(
+                    p.x,
+                    p.y,
+                    p.z,
+                    mMaxProgresstime,
+                    AEApi.instance().storage().createItemStack(itemStack)
+                ),
+                NetworkRegistry.TargetPoint(
+                    p.w.provider.dimensionId,
+                    p.x.toDouble(),
+                    p.y.toDouble(),
+                    p.z.toDouble(),
+                    64.0
+                )
+            )
         }
     }
 
@@ -428,6 +433,9 @@ class GT_TileEntity_LargeMolecularAssembler :
         private const val MIN_CASING_COUNT = 24
         private const val DATA_ORB_TITLE = "AE-JOBS"
         private const val CACHED_OUTPUTS_NBT_KEY = "cachedOutputs"
+        private const val STRUCTURE_HORIZONTAL_OFFSET = 2
+        private const val STRUCTURE_VERTICAL_OFFSET = 4
+        private const val STRUCTURE_DEPTH_OFFSET = 0
         private const val STRUCTURE_PIECE_MAIN = "main"
 
         // region STRUCTURE_DEFINITION
@@ -464,7 +472,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                     'X',
                     IStructureElementCheckOnly { it, w, x, y, z ->
                         when {
-                            w.isAirBlock(x, y, z) || w.getBlock(x, y, z) == BlockCraftingDisplay -> {
+                            w.isAirBlock(x, y, z) -> {
                                 it.craftingDisplayPoint = CraftingDisplayPoint(w, x, y, z)
                                 true
                             }
@@ -483,7 +491,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                 if (aeIS.stackSize <= 0) return@forEach
                 val tag = NBTTagCompound()
                 val isTag = NBTTagCompound()
-                aeIS.writeToNBT(isTag)
+                aeIS.itemStack.writeToNBT(isTag)
                 tag.setTag("itemStack", isTag)
                 tag.setLong("size", aeIS.stackSize)
                 isList.appendTag(tag)

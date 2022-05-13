@@ -2,6 +2,7 @@ package com.muxiu1997.mxrandom
 
 import com.muxiu1997.mxrandom.MXRandom.MODID
 import com.muxiu1997.mxrandom.MXRandom.MODNAME
+import com.muxiu1997.mxrandom.loader.RecipeLoader
 import com.muxiu1997.mxrandom.proxy.CommonProxy
 import cpw.mods.fml.common.Mod
 import cpw.mods.fml.common.SidedProxy
@@ -13,8 +14,11 @@ import org.apache.logging.log4j.Logger
     modid = MODID,
     name = MODNAME,
     version = "", // Handled by gradle
-    dependencies = "required-after:forgelin;required-after:appliedenergistics2;required-after:gregtech",
-    modLanguageAdapter = "net.shadowfacts.forgelin.KotlinAdapter"
+    modLanguageAdapter = "net.shadowfacts.forgelin.KotlinAdapter",
+    dependencies = "" +
+        "required-after:forgelin;" +
+        "required-after:appliedenergistics2;" +
+        "required-after:gregtech",
 )
 object MXRandom {
     const val MODID = "mxrandom"
@@ -39,7 +43,13 @@ object MXRandom {
     fun init(@Suppress("UNUSED_PARAMETER") e: FMLInitializationEvent) {
         proxy.registerBlocks()
         proxy.registerTileEntity()
+        proxy.registerGTMetaTileEntity()
         proxy.registerRenderers()
+    }
+
+    @Mod.EventHandler
+    fun postInit(@Suppress("UNUSED_PARAMETER") e: FMLInitializationEvent) {
+        RecipeLoader.run()
     }
 }
 

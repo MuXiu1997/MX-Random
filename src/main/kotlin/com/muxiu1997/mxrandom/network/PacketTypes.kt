@@ -1,8 +1,10 @@
 package com.muxiu1997.mxrandom.network
 
+import com.muxiu1997.mxrandom.network.packets.PacketCraftingFX
 import io.netty.buffer.ByteBuf
 
 enum class PacketTypes(private val packetClass: Class<out MXPacket<*>>) {
+    CRAFTING_FX(PacketCraftingFX::class.java),
     ;
 
 
