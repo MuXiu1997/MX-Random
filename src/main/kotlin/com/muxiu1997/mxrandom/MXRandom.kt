@@ -7,6 +7,7 @@ import com.muxiu1997.mxrandom.proxy.CommonProxy
 import cpw.mods.fml.common.Mod
 import cpw.mods.fml.common.SidedProxy
 import cpw.mods.fml.common.event.FMLInitializationEvent
+import cpw.mods.fml.common.event.FMLPostInitializationEvent
 import cpw.mods.fml.common.event.FMLPreInitializationEvent
 import org.apache.logging.log4j.Logger
 
@@ -48,7 +49,7 @@ object MXRandom {
     }
 
     @Mod.EventHandler
-    fun postInit(@Suppress("UNUSED_PARAMETER") e: FMLInitializationEvent) {
+    fun postInit(@Suppress("UNUSED_PARAMETER") e: FMLPostInitializationEvent) {
         RecipeLoader.run()
     }
 }
