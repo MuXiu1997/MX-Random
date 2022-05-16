@@ -1,7 +1,7 @@
 package com.muxiu1997.mxrandom.proxy
 
-import com.muxiu1997.mxrandom.MXRandom
-import com.muxiu1997.mxrandom.MXRandom.MODID
+import com.muxiu1997.mxrandom.MODID
+import com.muxiu1997.mxrandom.MXRandom.MTE_ID_OFFSET
 import com.muxiu1997.mxrandom.item.ItemList
 import com.muxiu1997.mxrandom.metatileentity.GT_TileEntity_LargeMolecularAssembler
 import gregtech.api.metatileentity.implementations.GT_MetaTileEntity_EnhancedMultiBlockBase
@@ -45,7 +45,7 @@ open class CommonProxy {
             return {
                 val constructor = T::class.java.getConstructor(Int::class.java, String::class.java, String::class.java)
                 val mte = constructor.newInstance(
-                    MXRandom.MTE_ID_OFFSET + id,
+                    MTE_ID_OFFSET + id,
                     "$MODID.$name",
                     StatCollector.translateToLocal("tile.$MODID.$name.name")
                 )

@@ -1,6 +1,6 @@
 package com.muxiu1997.mxrandom.network
 
-import com.muxiu1997.mxrandom.MXRandom.MODNAME
+import com.muxiu1997.mxrandom.MODNAME
 import cpw.mods.fml.common.FMLCommonHandler
 import cpw.mods.fml.common.eventhandler.SubscribeEvent
 import cpw.mods.fml.common.network.FMLEventChannel

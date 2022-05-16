@@ -2,7 +2,6 @@ package com.muxiu1997.mxrandom.network.packets
 
 import appeng.api.storage.data.IAEItemStack
 import appeng.util.item.AEItemStack
-import com.muxiu1997.mxrandom.MXRandom
 import com.muxiu1997.mxrandom.client.fx.CraftingFX
 import com.muxiu1997.mxrandom.network.MXPacket
 import cpw.mods.fml.relauncher.Side

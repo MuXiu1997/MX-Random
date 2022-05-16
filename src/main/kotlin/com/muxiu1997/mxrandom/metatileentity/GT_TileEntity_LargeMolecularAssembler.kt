@@ -24,7 +24,7 @@ import com.gtnewhorizon.structurelib.structure.IStructureDefinition
 import com.gtnewhorizon.structurelib.structure.IStructureElementCheckOnly
 import com.gtnewhorizon.structurelib.structure.StructureDefinition
 import com.gtnewhorizon.structurelib.structure.StructureUtility.*
-import com.muxiu1997.mxrandom.MXRandom.MODNAME
+import com.muxiu1997.mxrandom.MODNAME
 import com.muxiu1997.mxrandom.network.NetworkHandler
 import com.muxiu1997.mxrandom.network.packets.PacketCraftingFX
 import cpw.mods.fml.common.network.NetworkRegistry
