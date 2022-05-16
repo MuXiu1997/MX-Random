@@ -51,8 +51,8 @@ import java.util.*
 import kotlin.math.max
 
 class GT_TileEntity_LargeMolecularAssembler :
-    GT_MetaTileEntity_EnhancedMultiBlockBase<GT_TileEntity_LargeMolecularAssembler>, ICraftingProvider,
-    IActionHost, IGridProxyable {
+    GT_MetaTileEntity_EnhancedMultiBlockBase<GT_TileEntity_LargeMolecularAssembler>,
+    ICraftingProvider, IActionHost, IGridProxyable {
 
     private var casing: Byte = 0
     private var craftingDisplayPoint: CraftingDisplayPoint? = null
@@ -108,7 +108,9 @@ class GT_TileEntity_LargeMolecularAssembler :
             var craftingProgressTime = 20
             var craftingEUt = EU_PER_TICK_CRAFTING
             mEUt = -EU_PER_TICK_BASIC
+            // Tier EU_PER_TICK_CRAFTING == 2
             var extraTier = max(0, GT_Utility.getTier(maxInputVoltage).toInt() - 2)
+            // The first two Overclocks reduce the Finish time to 0.5s and 0.25s
             for (i in 0 until 2) {
                 if (extraTier <= 0) break
                 craftingProgressTime /= 2
@@ -116,6 +118,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                 extraTier--
             }
             var times = 2
+            // Subsequent Overclocks Double the number of Jobs finished at once to a Max of 256"
             while (times < 256) {
                 if (extraTier <= 0) break
                 times *= 2
@@ -158,18 +161,20 @@ class GT_TileEntity_LargeMolecularAssembler :
 
     override fun explodesOnComponentBreak(aStack: ItemStack?): Boolean = false
 
+    @Suppress("FunctionName")
     override fun createTooltip(): GT_Multiblock_Tooltip_Builder {
+        fun GREEN(thing: Any) = "${EnumChatFormatting.GREEN}$thing${EnumChatFormatting.GRAY}"
+        fun WHITE(thing: Any) = "${EnumChatFormatting.WHITE}$thing${EnumChatFormatting.GRAY}"
+        fun PURPLE(thing: Any) = "${EnumChatFormatting.DARK_PURPLE}$thing${EnumChatFormatting.GRAY}"
         return GT_Multiblock_Tooltip_Builder().also {
             it.addMachineType(MACHINE_TYPE)
-                // @formatter:off
                 .addInfo("Need a Data Orb to put in the Controller to work")
-                .addInfo("Basic: ${EU_PER_TICK_BASIC.withColor(EnumChatFormatting.GREEN)} Eu/t, Unaffected by overclocking")
-                .addInfo("Crafting: ${EU_PER_TICK_CRAFTING.withColor(EnumChatFormatting.GREEN)} Eu/t, Finish ${2.withColor(EnumChatFormatting.WHITE)} Jobs in ${1.withColor(EnumChatFormatting.WHITE)}s")
+                .addInfo("Basic: ${GREEN(EU_PER_TICK_BASIC)} Eu/t, Unaffected by overclocking")
+                .addInfo("Crafting: ${GREEN(EU_PER_TICK_CRAFTING)} Eu/t, Finish ${WHITE(2)} Jobs in ${WHITE(1)}s")
                 .addInfo("The first two Overclocks:")
-                .addInfo("-Reduce the Finish time to ${0.5.withColor(EnumChatFormatting.WHITE)}s and ${0.25.withColor(EnumChatFormatting.WHITE)}s")
+                .addInfo("-Reduce the Finish time to ${WHITE(0.5)}s and ${WHITE(0.25)}s")
                 .addInfo("Subsequent Overclocks:")
-                .addInfo("-Double the number of Jobs finished at once to a Max of ${256.withColor(EnumChatFormatting.WHITE)}")
-                // @formatter:on
+                .addInfo("-Double the number of Jobs finished at once to a Max of ${WHITE(256)}")
                 .addSeparator()
                 .beginStructureBlock(5, 5, 5, true)
                 .addController("Front center")
@@ -177,7 +182,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                 .addInputBus("Any casing", 1)
                 .addEnergyHatch("Any casing", 1)
                 .addMaintenanceHatch("Any casing", 1)
-                .toolTipFinisher(MODNAME.withColor(EnumChatFormatting.DARK_PURPLE))
+                .toolTipFinisher(PURPLE(MODNAME))
         }
     }
 
@@ -245,7 +250,7 @@ class GT_TileEntity_LargeMolecularAssembler :
             return
         }
         val dataOrb = mInventory[1]
-        var dataTitle = Behaviour_DataOrb.getDataTitle(dataOrb)
+        var dataTitle: String = Behaviour_DataOrb.getDataTitle(dataOrb)
         if (dataTitle.isEmpty()) {
             dataTitle = DATA_ORB_TITLE
             Behaviour_DataOrb.setDataTitle(dataOrb, dataTitle)
@@ -323,15 +328,10 @@ class GT_TileEntity_LargeMolecularAssembler :
     private fun issuePatternChangeIfNeeded(tick: Long) {
         if (tick % 20 != 0L) return
         compactedInputs.let { inputs ->
-            val patterns = inputs.filter {
-                it.item is ItemEncodedPattern &&
-                    (it.item as ItemEncodedPattern).getPatternForItem(it, baseMetaTileEntity.world).isCraftable
-            }
+            val patterns = inputs.filter { it.getPattern(baseMetaTileEntity.world)?.isCraftable == true }
             if (patterns == cachedPatterns) return
             cachedPatterns = patterns
-            cachedPatternDetails = patterns.map {
-                (it.item as ItemEncodedPattern).getPatternForItem(it, baseMetaTileEntity.world)
-            }
+            cachedPatternDetails = patterns.map { it.getPattern(baseMetaTileEntity.world)!! }
             proxy?.let {
                 try {
                     it.grid.postEvent(MENetworkCraftingPatternChange(this, it.node))
@@ -485,6 +485,7 @@ class GT_TileEntity_LargeMolecularAssembler :
 
         private data class CraftingDisplayPoint(val w: World, val x: Int, val y: Int, val z: Int)
 
+        // region IItemList<IAEItemStack> NBT
         private fun IItemList<IAEItemStack>.saveNBTData(nbt: NBTTagCompound, key: String) {
             val isList = NBTTagList()
             this.forEach { aeIS ->
@@ -512,9 +513,12 @@ class GT_TileEntity_LargeMolecularAssembler :
                 this.add(aeIS)
             }
         }
+        // endregion
 
-        private fun <T> T.withColor(color: EnumChatFormatting): String {
-            return "$color$this${EnumChatFormatting.GRAY}"
+        private fun ItemStack.getPattern(w: World): ICraftingPatternDetails? {
+            val item = this.item
+            if (item !is ItemEncodedPattern) return null
+            return item.getPatternForItem(this, w)
         }
     }
 }
