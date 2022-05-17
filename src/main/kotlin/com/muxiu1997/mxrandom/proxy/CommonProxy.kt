@@ -2,13 +2,25 @@ package com.muxiu1997.mxrandom.proxy
 
 import com.muxiu1997.mxrandom.MODID
 import com.muxiu1997.mxrandom.MXRandom.MTE_ID_OFFSET
+import com.muxiu1997.mxrandom.MXRandom.network
 import com.muxiu1997.mxrandom.item.ItemList
 import com.muxiu1997.mxrandom.metatileentity.GT_TileEntity_LargeMolecularAssembler
+import com.muxiu1997.mxrandom.network.IMessageBothSideHandler
+import com.muxiu1997.mxrandom.network.IMessageClientSideHandler
+import com.muxiu1997.mxrandom.network.IMessageServerSideHandler
+import com.muxiu1997.mxrandom.network.MessageCraftingFX
+import cpw.mods.fml.common.network.simpleimpl.IMessage
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler
+import cpw.mods.fml.relauncher.Side
 import gregtech.api.metatileentity.implementations.GT_MetaTileEntity_EnhancedMultiBlockBase
 import net.minecraft.util.StatCollector
 
 
 open class CommonProxy {
+    fun registerNetwork() {
+        register(MessageCraftingFX.Companion.Handler)
+    }
+
     fun registerBlocks() {
     }
 
@@ -50,6 +62,22 @@ open class CommonProxy {
                     StatCollector.translateToLocal("tile.$MODID.$name.name")
                 )
                 ref.set(mte.getStackForm(1))
+            }
+        }
+
+        var networkMessageID = 0
+        protected inline fun <reified M : IMessage> register(handler: IMessageHandler<M, *>) {
+            when (handler) {
+                is IMessageBothSideHandler -> {
+                    network.registerMessage(handler, M::class.java, networkMessageID++, Side.SERVER)
+                    network.registerMessage(handler, M::class.java, networkMessageID++, Side.CLIENT)
+                }
+                is IMessageServerSideHandler -> {
+                    network.registerMessage(handler, M::class.java, networkMessageID++, Side.SERVER)
+                }
+                is IMessageClientSideHandler -> {
+                    network.registerMessage(handler, M::class.java, networkMessageID++, Side.CLIENT)
+                }
             }
         }
         // endregion

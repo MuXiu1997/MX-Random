@@ -25,8 +25,8 @@ import com.gtnewhorizon.structurelib.structure.IStructureElementCheckOnly
 import com.gtnewhorizon.structurelib.structure.StructureDefinition
 import com.gtnewhorizon.structurelib.structure.StructureUtility.*
 import com.muxiu1997.mxrandom.MODNAME
-import com.muxiu1997.mxrandom.network.NetworkHandler
-import com.muxiu1997.mxrandom.network.packets.PacketCraftingFX
+import com.muxiu1997.mxrandom.MXRandom.network
+import com.muxiu1997.mxrandom.network.MessageCraftingFX
 import cpw.mods.fml.common.network.NetworkRegistry
 import gregtech.api.GregTech_API
 import gregtech.api.enums.ItemList
@@ -268,8 +268,8 @@ class GT_TileEntity_LargeMolecularAssembler :
 
     private fun addCraftingFX(itemStack: ItemStack) {
         craftingDisplayPoint?.let { p ->
-            NetworkHandler.sendToAllAround(
-                PacketCraftingFX(
+            network.sendToAllAround(
+                MessageCraftingFX(
                     p.x,
                     p.y,
                     p.z,

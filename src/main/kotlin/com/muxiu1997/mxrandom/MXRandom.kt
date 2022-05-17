@@ -6,6 +6,8 @@ import cpw.mods.fml.common.Mod
 import cpw.mods.fml.common.SidedProxy
 import cpw.mods.fml.common.event.FMLInitializationEvent
 import cpw.mods.fml.common.event.FMLPostInitializationEvent
+import cpw.mods.fml.common.network.NetworkRegistry
+import cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper
 import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.Logger
 
@@ -28,6 +30,7 @@ object MXRandomMod {
 
     @Mod.EventHandler
     fun init(@Suppress("UNUSED_PARAMETER") e: FMLInitializationEvent) {
+        proxy.registerNetwork()
         proxy.registerBlocks()
         proxy.registerTileEntity()
         proxy.registerGTMetaTileEntity()
@@ -70,4 +73,6 @@ object MXRandom {
     // endregion
 
     const val MTE_ID_OFFSET = 14100
+
+    val network: SimpleNetworkWrapper = NetworkRegistry.INSTANCE.newSimpleChannel(MODID)
 }
