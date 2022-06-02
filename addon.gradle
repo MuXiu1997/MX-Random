@@ -8,7 +8,11 @@ compileKotlin {
 }
 
 buildConfig {
-    packageName("com.muxiu1997.mxrandom")
-    buildConfigField('String', 'MODVER', "\"${project.modVersion}\"")
+    packageName(project.modGroup)
+    className('ModTags')
+    buildConfigField('String', 'MODID', "\"${project.modId}\"")
+    buildConfigField('String', 'MODNAME', "\"${project.modName}\"")
+    buildConfigField('String', 'VERSION', "\"${project.modVersion}\"")
+    buildConfigField('String', 'GROUPNAME', "\"${project.modGroup}\"")
     useKotlinOutput { topLevelConstants = true }
 }

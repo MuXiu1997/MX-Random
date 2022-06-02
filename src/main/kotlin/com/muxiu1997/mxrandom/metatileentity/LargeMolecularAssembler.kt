@@ -24,9 +24,13 @@ import com.gtnewhorizon.structurelib.structure.IStructureDefinition
 import com.gtnewhorizon.structurelib.structure.IStructureElementCheckOnly
 import com.gtnewhorizon.structurelib.structure.StructureDefinition
 import com.gtnewhorizon.structurelib.structure.StructureUtility.*
-import com.muxiu1997.mxrandom.MXRandom.MODNAME
-import com.muxiu1997.mxrandom.network.NetworkHandler
-import com.muxiu1997.mxrandom.network.packets.PacketCraftingFX
+import com.muxiu1997.mxrandom.MODNAME
+import com.muxiu1997.mxrandom.MXRandom.network
+import com.muxiu1997.mxrandom.api.IConfigurableMetaTileEntity
+import com.muxiu1997.mxrandom.client.gui.GuiConfigLargeMolecularAssembler
+import com.muxiu1997.mxrandom.network.container.ContainerConfigLargeMolecularAssembler
+import com.muxiu1997.mxrandom.network.message.MessageCraftingFX
+import com.muxiu1997.mxrandom.network.message.MessageSyncMetaTileEntityConfig
 import cpw.mods.fml.common.network.NetworkRegistry
 import gregtech.api.GregTech_API
 import gregtech.api.enums.ItemList
@@ -40,6 +44,9 @@ import gregtech.api.util.GT_Multiblock_Tooltip_Builder
 import gregtech.api.util.GT_StructureUtility.ofHatchAdder
 import gregtech.api.util.GT_Utility
 import gregtech.common.items.behaviors.Behaviour_DataOrb
+import io.netty.buffer.ByteBuf
+import net.minecraft.entity.player.EntityPlayer
+import net.minecraft.entity.player.EntityPlayerMP
 import net.minecraft.inventory.InventoryCrafting
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NBTTagCompound
@@ -50,9 +57,10 @@ import net.minecraftforge.common.util.ForgeDirection
 import java.util.*
 import kotlin.math.max
 
-class GT_TileEntity_LargeMolecularAssembler :
-    GT_MetaTileEntity_EnhancedMultiBlockBase<GT_TileEntity_LargeMolecularAssembler>, ICraftingProvider,
-    IActionHost, IGridProxyable {
+class LargeMolecularAssembler :
+    GT_MetaTileEntity_EnhancedMultiBlockBase<LargeMolecularAssembler>,
+    IConfigurableMetaTileEntity,
+    ICraftingProvider, IActionHost, IGridProxyable {
 
     private var casing: Byte = 0
     private var craftingDisplayPoint: CraftingDisplayPoint? = null
@@ -70,6 +78,8 @@ class GT_TileEntity_LargeMolecularAssembler :
     private var lastOutputTick: Long = 0
     private var tickCounter: Long = 0
 
+    var hiddenCraftingFX = false
+
     @Suppress("unused")
     constructor(aID: Int, aName: String, aNameRegional: String) : super(aID, aName, aNameRegional)
 
@@ -78,7 +88,7 @@ class GT_TileEntity_LargeMolecularAssembler :
 
     // region GT_MetaTileEntity_EnhancedMultiBlockBase
     override fun newMetaEntity(iGregTechTileEntity: IGregTechTileEntity): IMetaTileEntity {
-        return GT_TileEntity_LargeMolecularAssembler(this.mName)
+        return LargeMolecularAssembler(this.mName)
     }
 
     override fun getTexture(
@@ -108,7 +118,9 @@ class GT_TileEntity_LargeMolecularAssembler :
             var craftingProgressTime = 20
             var craftingEUt = EU_PER_TICK_CRAFTING
             mEUt = -EU_PER_TICK_BASIC
+            // Tier EU_PER_TICK_CRAFTING == 2
             var extraTier = max(0, GT_Utility.getTier(maxInputVoltage).toInt() - 2)
+            // The first two Overclocks reduce the Finish time to 0.5s and 0.25s
             for (i in 0 until 2) {
                 if (extraTier <= 0) break
                 craftingProgressTime /= 2
@@ -116,6 +128,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                 extraTier--
             }
             var times = 2
+            // Subsequent Overclocks Double the number of Jobs finished at once to a Max of 256"
             while (times < 256) {
                 if (extraTier <= 0) break
                 times *= 2
@@ -144,12 +157,14 @@ class GT_TileEntity_LargeMolecularAssembler :
     override fun saveNBTData(nbt: NBTTagCompound) {
         saveAeJobsIfNeeded()
         super.saveNBTData(nbt)
-        cachedOutputs.saveNBTData(nbt, CACHED_OUTPUTS_NBT_KEY)
+        cachedOutputs.saveNBTData(nbt, NBT_KEY_CACHED_OUTPUTS)
+        nbt.setBoolean(NBT_KEY_CONFIG_HIDDEN_CRAFTING_FX, hiddenCraftingFX)
     }
 
     override fun loadNBTData(nbt: NBTTagCompound) {
         super.loadNBTData(nbt)
-        cachedOutputs.loadNBTData(nbt, CACHED_OUTPUTS_NBT_KEY)
+        cachedOutputs.loadNBTData(nbt, NBT_KEY_CACHED_OUTPUTS)
+        hiddenCraftingFX = nbt.getBoolean(NBT_KEY_CONFIG_HIDDEN_CRAFTING_FX)
     }
 
     override fun getMaxEfficiency(aStack: ItemStack?): Int = 10000
@@ -158,18 +173,21 @@ class GT_TileEntity_LargeMolecularAssembler :
 
     override fun explodesOnComponentBreak(aStack: ItemStack?): Boolean = false
 
+    @Suppress("FunctionName")
     override fun createTooltip(): GT_Multiblock_Tooltip_Builder {
+        fun GREEN(thing: Any) = "${EnumChatFormatting.GREEN}$thing${EnumChatFormatting.GRAY}"
+        fun WHITE(thing: Any) = "${EnumChatFormatting.WHITE}$thing${EnumChatFormatting.GRAY}"
+        fun PURPLE(thing: Any) = "${EnumChatFormatting.DARK_PURPLE}$thing${EnumChatFormatting.GRAY}"
         return GT_Multiblock_Tooltip_Builder().also {
             it.addMachineType(MACHINE_TYPE)
-                // @formatter:off
                 .addInfo("Need a Data Orb to put in the Controller to work")
-                .addInfo("Basic: ${EU_PER_TICK_BASIC.withColor(EnumChatFormatting.GREEN)} Eu/t, Unaffected by overclocking")
-                .addInfo("Crafting: ${EU_PER_TICK_CRAFTING.withColor(EnumChatFormatting.GREEN)} Eu/t, Finish ${2.withColor(EnumChatFormatting.WHITE)} Jobs in ${1.withColor(EnumChatFormatting.WHITE)}s")
+                .addInfo("Basic: ${GREEN(EU_PER_TICK_BASIC)} Eu/t, Unaffected by overclocking")
+                .addInfo("Crafting: ${GREEN(EU_PER_TICK_CRAFTING)} Eu/t, Finish ${WHITE(2)} Jobs in ${WHITE(1)}s")
                 .addInfo("The first two Overclocks:")
-                .addInfo("-Reduce the Finish time to ${0.5.withColor(EnumChatFormatting.WHITE)}s and ${0.25.withColor(EnumChatFormatting.WHITE)}s")
+                .addInfo("-Reduce the Finish time to ${WHITE(0.5)}s and ${WHITE(0.25)}s")
                 .addInfo("Subsequent Overclocks:")
-                .addInfo("-Double the number of Jobs finished at once to a Max of ${256.withColor(EnumChatFormatting.WHITE)}")
-                // @formatter:on
+                .addInfo("-Double the number of Jobs finished at once to a Max of ${WHITE(256)}")
+                .addInfo("Use the screwdriver to right-click the Controller to open the config GUI")
                 .addSeparator()
                 .beginStructureBlock(5, 5, 5, true)
                 .addController("Front center")
@@ -177,7 +195,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                 .addInputBus("Any casing", 1)
                 .addEnergyHatch("Any casing", 1)
                 .addMaintenanceHatch("Any casing", 1)
-                .toolTipFinisher(MODNAME.withColor(EnumChatFormatting.DARK_PURPLE))
+                .toolTipFinisher(PURPLE(MODNAME))
         }
     }
 
@@ -215,7 +233,7 @@ class GT_TileEntity_LargeMolecularAssembler :
         )
     }
 
-    override fun getStructureDefinition(): IStructureDefinition<GT_TileEntity_LargeMolecularAssembler> =
+    override fun getStructureDefinition(): IStructureDefinition<LargeMolecularAssembler> =
         STRUCTURE_DEFINITION
 
     override fun addOutput(stack: ItemStack): Boolean {
@@ -232,7 +250,16 @@ class GT_TileEntity_LargeMolecularAssembler :
             issuePatternChangeIfNeeded(tick)
         }
     }
-    // endregion
+
+    override fun onScrewdriverRightClick(side: Byte, player: EntityPlayer?, x: Float, y: Float, z: Float) {
+        if (baseMetaTileEntity.isClientSide || player !is EntityPlayerMP) return
+        when (side) {
+            baseMetaTileEntity.frontFacing -> {
+                network.sendTo(MessageSyncMetaTileEntityConfig(this, true), player)
+            }
+        }
+    }
+// endregion
 
     private inline fun withAeJobs(action: (dataOrb: ItemStack, aeJobs: LinkedList<ItemStack>) -> Unit) {
         if (mInventory[1] === cachedDataOrb) {
@@ -245,7 +272,7 @@ class GT_TileEntity_LargeMolecularAssembler :
             return
         }
         val dataOrb = mInventory[1]
-        var dataTitle = Behaviour_DataOrb.getDataTitle(dataOrb)
+        var dataTitle: String = Behaviour_DataOrb.getDataTitle(dataOrb)
         if (dataTitle.isEmpty()) {
             dataTitle = DATA_ORB_TITLE
             Behaviour_DataOrb.setDataTitle(dataOrb, dataTitle)
@@ -262,9 +289,10 @@ class GT_TileEntity_LargeMolecularAssembler :
     }
 
     private fun addCraftingFX(itemStack: ItemStack) {
+        if (hiddenCraftingFX) return
         craftingDisplayPoint?.let { p ->
-            NetworkHandler.sendToAllAround(
-                PacketCraftingFX(
+            network.sendToAllAround(
+                MessageCraftingFX(
                     p.x,
                     p.y,
                     p.z,
@@ -323,15 +351,10 @@ class GT_TileEntity_LargeMolecularAssembler :
     private fun issuePatternChangeIfNeeded(tick: Long) {
         if (tick % 20 != 0L) return
         compactedInputs.let { inputs ->
-            val patterns = inputs.filter {
-                it.item is ItemEncodedPattern &&
-                    (it.item as ItemEncodedPattern).getPatternForItem(it, baseMetaTileEntity.world).isCraftable
-            }
+            val patterns = inputs.filter { it.getPattern(baseMetaTileEntity.world)?.isCraftable == true }
             if (patterns == cachedPatterns) return
             cachedPatterns = patterns
-            cachedPatternDetails = patterns.map {
-                (it.item as ItemEncodedPattern).getPatternForItem(it, baseMetaTileEntity.world)
-            }
+            cachedPatternDetails = patterns.map { it.getPattern(baseMetaTileEntity.world)!! }
             proxy?.let {
                 try {
                     it.grid.postEvent(MENetworkCraftingPatternChange(this, it.node))
@@ -369,6 +392,24 @@ class GT_TileEntity_LargeMolecularAssembler :
             else -> false
         }
     }
+
+    // region IConfigurableMetaTileEntity
+    override fun readConfigFromBytes(buf: ByteBuf) {
+        hiddenCraftingFX = buf.readBoolean()
+    }
+
+    override fun writeConfigToBytes(buf: ByteBuf) {
+        buf.writeBoolean(hiddenCraftingFX)
+    }
+
+    override fun getServerGuiElement(ID: Int, player: EntityPlayer?): Any {
+        return ContainerConfigLargeMolecularAssembler(this)
+    }
+
+    override fun getClientGuiElement(ID: Int, player: EntityPlayer?): Any {
+        return GuiConfigLargeMolecularAssembler(ContainerConfigLargeMolecularAssembler(this))
+    }
+    // endregion
 
     // region ICraftingProvider
     override fun pushPattern(patternDetails: ICraftingPatternDetails, table: InventoryCrafting): Boolean {
@@ -432,7 +473,8 @@ class GT_TileEntity_LargeMolecularAssembler :
         private const val CASING_INDEX = 48
         private const val MIN_CASING_COUNT = 24
         private const val DATA_ORB_TITLE = "AE-JOBS"
-        private const val CACHED_OUTPUTS_NBT_KEY = "cachedOutputs"
+        private const val NBT_KEY_CACHED_OUTPUTS = "cachedOutputs"
+        private const val NBT_KEY_CONFIG_HIDDEN_CRAFTING_FX = "config:hiddenCraftingFX"
         private const val STRUCTURE_HORIZONTAL_OFFSET = 2
         private const val STRUCTURE_VERTICAL_OFFSET = 4
         private const val STRUCTURE_DEPTH_OFFSET = 0
@@ -440,7 +482,7 @@ class GT_TileEntity_LargeMolecularAssembler :
 
         // region STRUCTURE_DEFINITION
         private val STRUCTURE_DEFINITION =
-            StructureDefinition.builder<GT_TileEntity_LargeMolecularAssembler>()
+            StructureDefinition.builder<LargeMolecularAssembler>()
                 .addShape(
                     STRUCTURE_PIECE_MAIN, transpose(
                         arrayOf(
@@ -455,7 +497,7 @@ class GT_TileEntity_LargeMolecularAssembler :
                 .addElement(
                     'C', ofChain(
                         ofHatchAdder(
-                            GT_TileEntity_LargeMolecularAssembler::addToLargeMolecularAssemblerList,
+                            LargeMolecularAssembler::addToLargeMolecularAssemblerList,
                             CASING_INDEX,
                             1
                         ),
@@ -485,6 +527,7 @@ class GT_TileEntity_LargeMolecularAssembler :
 
         private data class CraftingDisplayPoint(val w: World, val x: Int, val y: Int, val z: Int)
 
+        // region IItemList<IAEItemStack> NBT
         private fun IItemList<IAEItemStack>.saveNBTData(nbt: NBTTagCompound, key: String) {
             val isList = NBTTagList()
             this.forEach { aeIS ->
@@ -512,9 +555,12 @@ class GT_TileEntity_LargeMolecularAssembler :
                 this.add(aeIS)
             }
         }
+        // endregion
 
-        private fun <T> T.withColor(color: EnumChatFormatting): String {
-            return "$color$this${EnumChatFormatting.GRAY}"
+        private fun ItemStack.getPattern(w: World): ICraftingPatternDetails? {
+            val item = this.item
+            if (item !is ItemEncodedPattern) return null
+            return item.getPatternForItem(this, w)
         }
     }
 }
