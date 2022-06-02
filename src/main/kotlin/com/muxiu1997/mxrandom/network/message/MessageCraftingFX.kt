@@ -1,7 +1,8 @@
-package com.muxiu1997.mxrandom.network
+package com.muxiu1997.mxrandom.network.message
 
 import appeng.api.storage.data.IAEItemStack
 import appeng.util.item.AEItemStack
+import com.muxiu1997.mxrandom.api.network.IMessageClientSideHandler
 import com.muxiu1997.mxrandom.client.fx.CraftingFX
 import cpw.mods.fml.common.network.simpleimpl.IMessage
 import cpw.mods.fml.common.network.simpleimpl.MessageContext

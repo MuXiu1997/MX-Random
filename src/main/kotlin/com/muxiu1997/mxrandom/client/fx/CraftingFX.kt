@@ -31,7 +31,6 @@ class CraftingFX(
         Tessellator.instance.draw()
         GL11.glPushMatrix()
 
-
         val ticks: Float = Minecraft.getMinecraft().renderViewEntity.ticksExisted.toFloat()
         val x = (prevPosX + (posX - prevPosX) * renderPartialTicks - interpPosX)
         val y = (prevPosY + (posY - prevPosY) * renderPartialTicks - interpPosY)

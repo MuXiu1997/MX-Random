@@ -1,6 +1,5 @@
 package com.muxiu1997.mxrandom
 
-import com.muxiu1997.mxrandom.loader.RecipeLoader
 import com.muxiu1997.mxrandom.proxy.CommonProxy
 import cpw.mods.fml.common.Mod
 import cpw.mods.fml.common.SidedProxy
@@ -29,17 +28,13 @@ object MXRandomMod {
     lateinit var proxy: CommonProxy
 
     @Mod.EventHandler
-    fun init(@Suppress("UNUSED_PARAMETER") e: FMLInitializationEvent) {
-        proxy.registerNetwork()
-        proxy.registerBlocks()
-        proxy.registerTileEntity()
-        proxy.registerGTMetaTileEntity()
-        proxy.registerRenderers()
+    fun onInit(@Suppress("UNUSED_PARAMETER") e: FMLInitializationEvent) {
+        proxy.onInit(e)
     }
 
     @Mod.EventHandler
-    fun postInit(@Suppress("UNUSED_PARAMETER") e: FMLPostInitializationEvent) {
-        RecipeLoader.run()
+    fun onPostInit(@Suppress("UNUSED_PARAMETER") e: FMLPostInitializationEvent) {
+        proxy.onPostInit(e)
     }
 }
 

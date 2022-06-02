@@ -1,4 +1,4 @@
-package com.muxiu1997.mxrandom.network
+package com.muxiu1997.mxrandom.api.network
 
 import cpw.mods.fml.common.network.simpleimpl.IMessage
 import cpw.mods.fml.common.network.simpleimpl.IMessageHandler

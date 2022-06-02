@@ -1,1 +1,3 @@
-tile.mxrandom.largemolecularassembler.name=Large Molecular Assembler
+mxrandom.client.gui.GuiConfigLargeMolecularAssembler.craftingFX=Crafting FX
+mxrandom.client.gui.GuiConfigLargeMolecularAssembler.hidden=Hidden
+mxrandom.client.gui.GuiConfigLargeMolecularAssembler.visible=Visible
